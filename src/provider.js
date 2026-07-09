@@ -11,7 +11,7 @@ export class AnthropicProvider {
   constructor({ apiKey = config.apiKey, model = config.model, maxTokens = config.maxTokens } = {}) {
     if (!apiKey) {
       throw new Error(
-        'ANTHROPIC_API_KEY is not set. The Crucible needs a Claude API key to convene the council.',
+        'No Anthropic API key. Enter one in Settings, or set ANTHROPIC_API_KEY in the environment.',
       );
     }
     this.apiKey = apiKey;

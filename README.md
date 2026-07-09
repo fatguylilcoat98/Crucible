@@ -100,6 +100,15 @@ set, every `/api/*` request must carry it in the `x-crucible-key` header; the
 web UI asks for it once and keeps it in localStorage. `GET /health` is the
 unauthenticated health check.
 
+**The Anthropic API key can be entered in the web UI** (Settings tab) instead
+of the environment: it is verified against the Anthropic API with a minimal
+live call, then stored encrypted with a key derived from your access key
+(scrypt → AES-256-GCM) in `_settings.json` on the data volume — nothing
+readable at rest, and the passphrase lives only in the server environment.
+A key saved in Settings takes precedence over `ANTHROPIC_API_KEY`. If you
+change `CRUCIBLE_ACCESS_KEY`, the stored key becomes unreadable and Settings
+will ask for it again.
+
 **Home server (Docker):**
 
 ```bash

@@ -75,6 +75,7 @@
   <nav>
     <button id="nav-session" class="active">Session</button>
     <button id="nav-ledger">The Ledger</button>
+    <button id="nav-settings">Settings</button>
   </nav>
 
   <div class="panel hidden" id="gate">
@@ -106,6 +107,20 @@
     <div class="panel" id="ledger-list"><p class="dimtext">Loading the ledger…</p></div>
   </section>
 
+  <section id="view-settings" class="hidden">
+    <div class="panel">
+      <p id="key-status" class="dimtext">Checking…</p>
+      <label for="apikey">Anthropic API key</label>
+      <input type="password" id="apikey" placeholder="sk-ant-api03-…" autocomplete="off">
+      <p class="conf-note">Verified against the Anthropic API before saving, then stored encrypted
+        with your access key (AES-256-GCM) — nothing readable touches the disk. If you ever change
+        the access key, re-enter the API key here. Get a key at console.anthropic.com → API Keys.</p>
+      <button class="act" id="save-key">Verify &amp; save</button>
+      <button class="act" id="clear-key" style="background:var(--edge);color:var(--ink)">Remove stored key</button>
+      <p id="settings-msg" class="dimtext"></p>
+    </div>
+  </section>
+
 <script>
 const $ = (id) => document.getElementById(id);
 const log = $('log');
@@ -114,12 +129,13 @@ let sessionId = null, cruxes = [], presses = null, firstAnswers = [];
 $('conf').oninput = () => $('confval').textContent = $('conf').value;
 $('nav-session').onclick = () => switchView('session');
 $('nav-ledger').onclick = () => { switchView('ledger'); loadLedger(); };
+$('nav-settings').onclick = () => { switchView('settings'); loadSettings(); };
 
 function switchView(v) {
-  $('view-session').classList.toggle('hidden', v !== 'session');
-  $('view-ledger').classList.toggle('hidden', v !== 'ledger');
-  $('nav-session').classList.toggle('active', v === 'session');
-  $('nav-ledger').classList.toggle('active', v === 'ledger');
+  for (const name of ['session', 'ledger', 'settings']) {
+    $(`view-${name}`).classList.toggle('hidden', name !== v);
+    $(`nav-${name}`).classList.toggle('active', name === v);
+  }
 }
 
 function el(html) { const d = document.createElement('div'); d.innerHTML = html; return d; }
@@ -139,8 +155,7 @@ function apiHeaders(extra = {}) {
 function showGate(refused) {
   $('gate').classList.remove('hidden');
   $('gate-err').classList.toggle('hidden', !refused);
-  $('view-session').classList.add('hidden');
-  $('view-ledger').classList.add('hidden');
+  for (const name of ['session', 'ledger', 'settings']) $(`view-${name}`).classList.add('hidden');
 }
 
 async function checkAccess() {
@@ -308,6 +323,53 @@ $('submit-defense').onclick = async () => {
     setWorking(null);
     log.appendChild(el(`<p class="err">${esc(e.message)}</p>`));
   }
+};
+
+const KEY_STATUS_TEXT = {
+  settings: '✓ API key set here in Settings — the council runs on it.',
+  env: '✓ API key from the server environment (ANTHROPIC_API_KEY). A key saved here would take precedence.',
+  none_unreadable: '⚠ A stored key exists but the access key changed since it was saved — re-enter your API key below.',
+  none: '✗ No API key. The council cannot convene until one is set.',
+};
+
+async function loadSettings() {
+  const res = await fetch('api/settings', { headers: apiHeaders() });
+  if (res.status === 401) { showGate(true); return; }
+  const s = await res.json();
+  const state = s.keySource || (s.keyStatus === 'unreadable' ? 'none_unreadable' : 'none');
+  $('key-status').textContent = (s.mock ? '(mock mode — canned council, key unused) ' : '') + KEY_STATUS_TEXT[state];
+  $('save-key').disabled = !s.canStore;
+  $('settings-msg').textContent = s.canStore ? '' : 'Set CRUCIBLE_ACCESS_KEY on the server to enable storing a key here.';
+}
+
+$('save-key').onclick = async () => {
+  const apiKey = $('apikey').value;
+  if (!apiKey.trim()) return;
+  $('save-key').disabled = true;
+  $('settings-msg').textContent = 'Verifying against the Anthropic API…';
+  try {
+    const res = await fetch('api/settings', {
+      method: 'POST',
+      headers: apiHeaders({ 'content-type': 'application/json' }),
+      body: JSON.stringify({ apiKey }),
+    });
+    const out = await res.json();
+    $('settings-msg').textContent = res.ok ? '✓ Key verified and saved.' : out.error;
+    if (res.ok) { $('apikey').value = ''; loadSettings(); }
+  } catch (e) {
+    $('settings-msg').textContent = e.message;
+  }
+  $('save-key').disabled = false;
+};
+
+$('clear-key').onclick = async () => {
+  const res = await fetch('api/settings', {
+    method: 'POST',
+    headers: apiHeaders({ 'content-type': 'application/json' }),
+    body: JSON.stringify({ apiKey: '' }),
+  });
+  $('settings-msg').textContent = res.ok ? 'Stored key removed.' : (await res.json()).error;
+  loadSettings();
 };
 
 async function loadLedger() {

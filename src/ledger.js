@@ -36,7 +36,8 @@ export class Ledger {
     if (!fs.existsSync(this.dir)) return [];
     return fs
       .readdirSync(this.dir)
-      .filter((f) => f.endsWith('.json'))
+      // underscore-prefixed files (e.g. _settings.json) are not threads
+      .filter((f) => f.endsWith('.json') && !f.startsWith('_'))
       .map((f) => this.readThread(f.replace(/\.json$/, '')))
       .filter(Boolean)
       .sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
@@ -46,7 +47,8 @@ export class Ledger {
     const p = this.threadPath(id);
     if (!fs.existsSync(p)) return null;
     try {
-      return JSON.parse(fs.readFileSync(p, 'utf8'));
+      const thread = JSON.parse(fs.readFileSync(p, 'utf8'));
+      return Array.isArray(thread?.sessions) ? thread : null;
     } catch {
       return null;
     }
