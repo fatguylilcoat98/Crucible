@@ -100,22 +100,33 @@ set, every `/api/*` request must carry it in the `x-crucible-key` header; the
 web UI asks for it once and keeps it in localStorage. `GET /health` is the
 unauthenticated health check.
 
-**Render** (this repo ships a blueprint): New → Blueprint, point it at this
-repo, and set `ANTHROPIC_API_KEY` and `CRUCIBLE_ACCESS_KEY` (pick any strong
-secret) when prompted. `render.yaml` uses the starter plan with a 1 GB
-persistent disk at `/data` so the ledger survives deploys; on the free plan,
-delete the `disk:` block and accept that the ledger resets on each deploy.
+**Home server (Docker):**
 
-**Any Linux box:**
+```bash
+git clone <this repo> && cd Crucible
+cp .env.example .env      # set ANTHROPIC_API_KEY and CRUCIBLE_ACCESS_KEY
+docker compose up -d --build
+curl http://localhost:4517/health   # → {"ok":true,...}
+```
+
+The ledger lives on the `crucible-data` volume so it survives restarts and
+rebuilds. Expose the service through your Cloudflare Tunnel (map a hostname to
+`http://localhost:4517`) or reverse proxy for TLS — do not port-forward it
+raw. Back up the volume; the ledger is the whole point of the system.
+
+**Bare Node, no Docker:**
 
 ```bash
 ANTHROPIC_API_KEY=sk-ant-... \
 CRUCIBLE_ACCESS_KEY=$(openssl rand -hex 24) \
+CRUCIBLE_LEDGER_DIR=/var/lib/crucible \
 PORT=4517 node src/server.js
 ```
 
-Put it behind your reverse proxy for TLS, and back up the ledger directory —
-it is the whole point of the system.
+**Render** (`render.yaml` blueprint, kept for transition): New → Blueprint,
+point it at this repo, set both secrets when prompted. Uses the starter plan
+with a persistent disk at `/data`; on the free plan delete the `disk:` block
+and accept that the ledger resets on each deploy.
 
 ## Design principles
 

@@ -1,0 +1,27 @@
+# The Crucible — home-server deployment, same shape as the other services:
+# .env for secrets, named volume for data, healthcheck, restart policy.
+# Expose it through your Cloudflare Tunnel (or reverse proxy) for TLS; do
+# not port-forward it raw.
+#
+#   cp .env.example .env   # fill in both values
+#   docker compose up -d --build
+
+services:
+  crucible:
+    build: .
+    container_name: crucible
+    restart: unless-stopped
+    ports:
+      - "4517:4517"
+    env_file:
+      - .env
+    volumes:
+      - crucible-data:/data
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:4517/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  crucible-data:
