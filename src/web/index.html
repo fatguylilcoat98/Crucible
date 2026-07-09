@@ -124,6 +124,15 @@
   </section>
 
 <script>
+// Any script crash surfaces as a visible banner instead of a silently dead
+// page — debugging an invisible failure over a phone screenshot is not fun.
+window.addEventListener('error', (e) => {
+  const banner = document.createElement('p');
+  banner.className = 'err';
+  banner.textContent = `Page script error: ${e.message} (${(e.filename || '').split('/').pop()}:${e.lineno})`;
+  document.body.prepend(banner);
+});
+
 const $ = (id) => document.getElementById(id);
 const log = $('log');
 let sessionId = null, cruxes = [], presses = null, firstAnswers = [];
@@ -345,15 +354,22 @@ async function loadSettings() {
 }
 
 // Live feedback so "did the paste land?" is never a mystery on mobile.
-$('apikey').oninput = () => {
+// Bound to several events because some mobile keyboards bulk-insert text
+// through paths that skip a plain input listener.
+function reportKeyLength() {
   const n = $('apikey').value.trim().length;
   $('settings-msg').textContent = n ? `${n} characters in the box.` : '';
-};
+}
+for (const evt of ['input', 'keyup', 'change', 'paste']) {
+  $('apikey').addEventListener(evt, () => setTimeout(reportKeyLength, 0));
+}
 
 $('save-key').onclick = async () => {
   const apiKey = $('apikey').value;
   if (!apiKey.trim()) {
-    $('settings-msg').textContent = 'The key box is empty — paste your sk-ant- key first. (On mobile, long-press the box and choose Paste.)';
+    $('settings-msg').textContent =
+      `The page reads ${apiKey.length} characters in the key box — paste your sk-ant- key first. ` +
+      '(On mobile, long-press the box and choose Paste.)';
     return;
   }
   $('save-key').disabled = true;
