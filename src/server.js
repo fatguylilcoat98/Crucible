@@ -20,6 +20,7 @@ import { storeApiKey, clearApiKey, loadApiKey } from './secrets.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const MOCK = process.argv.includes('--mock') || process.env.CRUCIBLE_MOCK === '1';
+const VERSION = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8')).version;
 
 const ledger = new Ledger();
 const pending = new Map(); // session id → { session, threadId }
@@ -86,8 +87,14 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
-      res.end(fs.readFileSync(path.join(__dirname, 'web', 'index.html')));
+      // no-store: a stale cached UI against a newer API produces maddening
+      // silent breakage, especially behind proxies. The page is small.
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' });
+      res.end(
+        fs
+          .readFileSync(path.join(__dirname, 'web', 'index.html'), 'utf8')
+          .replace('{{VERSION}}', VERSION),
+      );
       return;
     }
 
