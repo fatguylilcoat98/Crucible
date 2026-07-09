@@ -11,5 +11,11 @@ export const config = {
   // responses bounded so a session stays fast and dense rather than rambling.
   maxTokens: Number(process.env.CRUCIBLE_MAX_TOKENS || 2000),
   ledgerDir: process.env.CRUCIBLE_LEDGER_DIR || path.resolve('crucible-ledger'),
-  port: Number(process.env.CRUCIBLE_PORT || 4517),
+  // Render (and most PaaS hosts) inject PORT; CRUCIBLE_PORT wins locally.
+  port: Number(process.env.CRUCIBLE_PORT || process.env.PORT || 4517),
+  // When set, every /api/* request must carry this key in the
+  // x-crucible-key header. Mandatory for any deployment that is not
+  // localhost: the API spends your Anthropic credits and the ledger is
+  // your private thinking.
+  accessKey: process.env.CRUCIBLE_ACCESS_KEY || '',
 };

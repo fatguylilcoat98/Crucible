@@ -1,0 +1,27 @@
+services:
+  - type: web
+    name: crucible
+    runtime: node
+    # starter (paid) is required for the persistent disk below. On the free
+    # plan, delete the `disk:` block — everything still works, but the ledger
+    # resets on every deploy/restart because Render's filesystem is ephemeral.
+    plan: starter
+    buildCommand: npm install
+    startCommand: node src/server.js
+    healthCheckPath: /health
+    disk:
+      name: crucible-ledger
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # The gate for the whole API. Anyone without this key gets 401 —
+      # without it, anyone who finds the URL spends your Anthropic credits
+      # and can read your ledger. Set your own value when the blueprint asks.
+      - key: CRUCIBLE_ACCESS_KEY
+        sync: false
+      - key: CRUCIBLE_LEDGER_DIR
+        value: "/data/ledger"

@@ -49,9 +49,26 @@ function sendJson(res, status, obj) {
   res.end(JSON.stringify(obj));
 }
 
+function authorized(req) {
+  if (!config.accessKey) return true;
+  const offered = String(req.headers['x-crucible-key'] || '');
+  const expected = config.accessKey;
+  const a = crypto.createHash('sha256').update(offered).digest();
+  const b = crypto.createHash('sha256').update(expected).digest();
+  return crypto.timingSafeEqual(a, b);
+}
+
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, `http://${req.headers.host}`);
   try {
+    if (req.method === 'GET' && url.pathname === '/health') {
+      return sendJson(res, 200, { ok: true, mock: MOCK });
+    }
+
+    if (url.pathname.startsWith('/api/') && !authorized(req)) {
+      return sendJson(res, 401, { error: 'access key required' });
+    }
+
     if (req.method === 'GET' && (url.pathname === '/' || url.pathname === '/index.html')) {
       res.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
       res.end(fs.readFileSync(path.join(__dirname, 'web', 'index.html')));
@@ -131,4 +148,7 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(config.port, () => {
   console.log(`The Crucible is lit: http://localhost:${config.port}${MOCK ? '  (mock council)' : ''}`);
+  if (!config.accessKey) {
+    console.log('No CRUCIBLE_ACCESS_KEY set — the API is open. Fine on localhost, not on a server.');
+  }
 });

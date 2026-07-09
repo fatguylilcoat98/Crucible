@@ -77,6 +77,13 @@
     <button id="nav-ledger">The Ledger</button>
   </nav>
 
+  <div class="panel hidden" id="gate">
+    <label for="gatekey">Access key</label>
+    <input type="text" id="gatekey" placeholder="This crucible is locked. Enter the access key.">
+    <button class="act" id="gate-save">Unlock</button>
+    <p class="err hidden" id="gate-err">That key was refused.</p>
+  </div>
+
   <section id="view-session">
     <div class="panel" id="intake">
       <label for="claim">Your claim, decision, or position — high stakes only</label>
@@ -118,8 +125,41 @@ function switchView(v) {
 function el(html) { const d = document.createElement('div'); d.innerHTML = html; return d; }
 function esc(s) { return String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 
+const accessKey = {
+  get: () => localStorage.getItem('crucible-key') || '',
+  set: (v) => localStorage.setItem('crucible-key', v),
+};
+
+function apiHeaders(extra = {}) {
+  const h = { ...extra };
+  if (accessKey.get()) h['x-crucible-key'] = accessKey.get();
+  return h;
+}
+
+function showGate(refused) {
+  $('gate').classList.remove('hidden');
+  $('gate-err').classList.toggle('hidden', !refused);
+  $('view-session').classList.add('hidden');
+  $('view-ledger').classList.add('hidden');
+}
+
+async function checkAccess() {
+  const res = await fetch('/api/ledger', { headers: apiHeaders() });
+  if (res.status === 401) { showGate(Boolean(accessKey.get())); return false; }
+  $('gate').classList.add('hidden');
+  return true;
+}
+
+$('gate-save').onclick = async () => {
+  accessKey.set($('gatekey').value.trim());
+  if (await checkAccess()) switchView('session');
+};
+
+checkAccess();
+
 async function streamNdjson(url, body, onEvent) {
-  const res = await fetch(url, { method: 'POST', headers: {'content-type': 'application/json'}, body: JSON.stringify(body) });
+  const res = await fetch(url, { method: 'POST', headers: apiHeaders({'content-type': 'application/json'}), body: JSON.stringify(body) });
+  if (res.status === 401) { showGate(true); throw new Error('access key required'); }
   if (!res.ok) { const e = await res.json().catch(() => ({error: res.statusText})); throw new Error(e.error); }
   const reader = res.body.getReader();
   const decoder = new TextDecoder();
@@ -272,7 +312,9 @@ $('submit-defense').onclick = async () => {
 
 async function loadLedger() {
   const box = $('ledger-list');
-  const data = await fetch('/api/ledger').then((r) => r.json());
+  const res = await fetch('/api/ledger', { headers: apiHeaders() });
+  if (res.status === 401) { showGate(true); return; }
+  const data = await res.json();
   if (!data.threads.length) {
     box.innerHTML = '<p class="dimtext">The ledger is empty. Nothing has faced the crucible yet.</p>';
     return;

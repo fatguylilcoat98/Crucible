@@ -89,8 +89,33 @@ npm test                       # offline test suite (mock council)
 ```
 
 Configuration (all optional): `CRUCIBLE_MODEL` (default `claude-sonnet-5`),
-`CRUCIBLE_LEDGER_DIR` (default `./crucible-ledger`), `CRUCIBLE_PORT`
-(default `4517`), `CRUCIBLE_MAX_TOKENS`.
+`CRUCIBLE_LEDGER_DIR` (default `./crucible-ledger`), `CRUCIBLE_PORT` or `PORT`
+(default `4517`), `CRUCIBLE_MAX_TOKENS`, `CRUCIBLE_ACCESS_KEY` (see below).
+
+## Deploying to a server
+
+**Never expose the server without `CRUCIBLE_ACCESS_KEY`.** The API spends your
+Anthropic credits and the ledger is your private thinking. When the key is
+set, every `/api/*` request must carry it in the `x-crucible-key` header; the
+web UI asks for it once and keeps it in localStorage. `GET /health` is the
+unauthenticated health check.
+
+**Render** (this repo ships a blueprint): New → Blueprint, point it at this
+repo, and set `ANTHROPIC_API_KEY` and `CRUCIBLE_ACCESS_KEY` (pick any strong
+secret) when prompted. `render.yaml` uses the starter plan with a 1 GB
+persistent disk at `/data` so the ledger survives deploys; on the free plan,
+delete the `disk:` block and accept that the ledger resets on each deploy.
+
+**Any Linux box:**
+
+```bash
+ANTHROPIC_API_KEY=sk-ant-... \
+CRUCIBLE_ACCESS_KEY=$(openssl rand -hex 24) \
+PORT=4517 node src/server.js
+```
+
+Put it behind your reverse proxy for TLS, and back up the ledger directory —
+it is the whole point of the system.
 
 ## Design principles
 
