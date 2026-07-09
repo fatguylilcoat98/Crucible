@@ -144,7 +144,7 @@ function showGate(refused) {
 }
 
 async function checkAccess() {
-  const res = await fetch('/api/ledger', { headers: apiHeaders() });
+  const res = await fetch('api/ledger', { headers: apiHeaders() });
   if (res.status === 401) { showGate(Boolean(accessKey.get())); return false; }
   $('gate').classList.add('hidden');
   return true;
@@ -282,7 +282,7 @@ $('begin').onclick = async () => {
   log.innerHTML = '';
   $('defense').classList.add('hidden');
   try {
-    await streamNdjson('/api/start', { claim, confidence: Number($('conf').value) }, handleEvent);
+    await streamNdjson('api/start', { claim, confidence: Number($('conf').value) }, handleEvent);
   } catch (e) {
     log.appendChild(el(`<p class="err">${esc(e.message)}</p>`));
   }
@@ -303,7 +303,7 @@ $('submit-defense').onclick = async () => {
   $('defense').classList.add('hidden');
   setWorking('The Examiner is grading your answers…');
   try {
-    await streamNdjson('/api/defend', { sessionId, answers }, handleEvent);
+    await streamNdjson('api/defend', { sessionId, answers }, handleEvent);
   } catch (e) {
     setWorking(null);
     log.appendChild(el(`<p class="err">${esc(e.message)}</p>`));
@@ -312,7 +312,7 @@ $('submit-defense').onclick = async () => {
 
 async function loadLedger() {
   const box = $('ledger-list');
-  const res = await fetch('/api/ledger', { headers: apiHeaders() });
+  const res = await fetch('api/ledger', { headers: apiHeaders() });
   if (res.status === 401) { showGate(true); return; }
   const data = await res.json();
   if (!data.threads.length) {
